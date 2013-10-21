@@ -1,28 +1,28 @@
 require File.dirname(__FILE__) + '/../../lib/cas_rest_client'
 
-default_options = {:uri => 'http://tst.srv/v1/tickets', 
+default_options = {:uri => 'http://tst.srv/v1/tickets',
            :domain => 'some_domain',
            :username => 'lw_tst',
            :password => 'inicial1234'}
 
 describe CasRestClient do
 
-  describe 'Lifecycle' do 
+  describe 'Lifecycle' do
     let(:crc) { CasRestClient.new(options) }
     let(:cookie) { "the-cas-cookie" }
     before :each do
-      RestClient.should_receive(:post).and_return(mock(:headers => {:location => "http://tgt_uri.com"}))    
+      RestClient.should_receive(:post).and_return(mock(:headers => {:location => "http://tgt_uri.com"}))
     end
 
     context "with cookies disabled" do
       let(:options) { default_options.merge(:use_cookies => false) }
-      
+
       it "should not get the resource with cookies" do
         crc.should_receive(:execute_with_tgt)
         crc.should_not_receive(:execute_with_cookie)
         crc.get("xpto")
       end
-      
+
       context "and custom ticket_header" do
         let(:options) { default_options.merge(:use_cookies => false, :ticket_header => "auth-ticket") }
         it "should send ticket in header" do
@@ -33,12 +33,12 @@ describe CasRestClient do
           RestClient.should_receive(:send).with("post", "tst.app", { :name => "test"}, {"auth-ticket" => "ticket1"}).and_return(response)
           crc.post("tst.app", {:name => "test"}).should == response
         end
-      end      
+      end
     end
-    
+
     context "with default options" do
       let(:options) { default_options }
-      
+
       it "should not try to access a resource with cookies if @cookies is not set" do
         RestClient.should_not_receive(:send).with("get", "tst.app", :cookies => nil)
         crc.instance_variable_set("@tgt", "tgt.url")
@@ -73,7 +73,7 @@ describe CasRestClient do
         context "and the POST returns a cookie" do
           it "should retry the POST using the cookie" do
             cookie_response = mock(:"cookie-response", :cookies => cookie)
-  
+
             RestClient.should_receive(:send).with("post", "tst.app?ticket=ticket1", {}).and_raise RestClient::Found.new(ticket_response, 302)
             RestClient.should_receive(:send).with("post", "tst.app", :cookies => cookie).and_return(cookie_response)
             crc.post("tst.app").should == cookie_response
@@ -82,10 +82,10 @@ describe CasRestClient do
       end
 
       context "with @cookies" do
-        before { 
+        before {
           crc.instance_variable_set("@cookies", cookie)
         }
-        
+
         it "should get the resource with already retrieved tgt if cookie fails" do
           RestClient.should_receive(:send).with("get", "tst.app", :cookies => cookie).and_raise(RestClient::Request::Unauthorized.new("pan"))
           crc.instance_variable_set("@tgt", "tgt.url")
@@ -95,29 +95,29 @@ describe CasRestClient do
           RestClient.should_receive(:send).with("get", "tst.app?ticket=ticket1", {}).and_return(response)
           crc.get("tst.app").should == response
         end
-        
+
         it "should get the resource with cookies" do
           RestClient.should_receive(:send).with("get", "tst.app", :cookies => cookie).and_return("resource")
           crc.get("tst.app").should == "resource"
         end
-        
+
         it "should delete the resource with cookies" do
           RestClient.should_receive(:send).with("delete", "tst.app", :cookies => cookie).and_return("resource")
           crc.delete("tst.app").should == "resource"
         end
-    
+
         it "should post a resource with cookies" do
           RestClient.should_receive(:send).with("post", "tst.app", {:opt => :opts}, :cookies => cookie).and_return("resource")
           crc.post("tst.app", {:opt => :opts}).should == "resource"
         end
-    
+
         it "should put a resource with cookies" do
           RestClient.should_receive(:send).with("put", "tst.app", {:opt => :opts}, :cookies => cookie).and_return("resource")
           crc.put("tst.app", {:opt => :opts}).should == "resource"
         end
       end
     end
-    
+
     context "with custom service" do
       let(:options) { default_options.merge(:service => "custom.service") }
       it "should go after a tgt if existing tgt expires" do
@@ -148,11 +148,11 @@ describe CasRestClient do
   describe "config file" do
     it "should read its configuration from config/cas_rest_client.yml if it exists" do
       config = {
-        "uri"=>"https://casuri.com/v1/tickets", 
-        "service"=>"http://someservice.com/orders", 
-        "username"=>"user", 
-        "domain"=>"some_domain", 
-        "use_cookies"=>false, 
+        "uri"=>"https://casuri.com/v1/tickets",
+        "service"=>"http://someservice.com/orders",
+        "username"=>"user",
+        "domain"=>"some_domain",
+        "use_cookies"=>false,
         "password"=>"some_password"
       }
       YAML.should_receive(:load_file).with("config/cas_rest_client.yml").and_return(config)
@@ -173,11 +173,11 @@ describe CasRestClient do
 
     it "should overwrite any parameter from configuration file if a new is specified in the constructor" do
       config = {
-        "uri"=>"https://casuri.com/v1/tickets", 
-        "service"=>"http://someservice.com/orders", 
-        "username"=>"user", 
-        "domain"=>"some_domain", 
-        "use_cookies"=>false, 
+        "uri"=>"https://casuri.com/v1/tickets",
+        "service"=>"http://someservice.com/orders",
+        "username"=>"user",
+        "domain"=>"some_domain",
+        "use_cookies"=>false,
         "password"=>"some_password"
       }
       YAML.should_receive(:load_file).with("config/cas_rest_client.yml").and_return(config)
@@ -197,13 +197,13 @@ describe CasRestClient do
     end
 
     it "should read its configuration from config/cas_rest_client.yml in a Rails app with different Rails envs" do
-      config = {"development" => 
+      config = {"development" =>
         {
-          "uri"=>"https://casuri.com/v1/tickets", 
-          "service"=>"http://someservice.com/orders", 
-          "username"=>"user", 
-          "domain"=>"some_domain", 
-          "use_cookies"=>false, 
+          "uri"=>"https://casuri.com/v1/tickets",
+          "service"=>"http://someservice.com/orders",
+          "username"=>"user",
+          "domain"=>"some_domain",
+          "use_cookies"=>false,
           "password"=>"some_password"
         }
       }

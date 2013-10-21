@@ -1,8 +1,5 @@
 class CasRestClient
 
-  @cas_opts = nil
-  @tgt = nil
-  @cookies = nil
   DEFAULT_OPTIONS = {:use_cookies => true}
 
   def initialize(cas_opts = {})
@@ -10,7 +7,7 @@ class CasRestClient
 
     begin
       get_tgt
-    rescue RestClient::BadRequest => e
+    rescue RestClient::BadRequest
       raise RestClient::Request::Unauthorized.new
     end
   end
@@ -31,12 +28,16 @@ class CasRestClient
     execute("put", uri, params, options)
   end
 
+  def destroy
+    RestClient.delete(@tgt)
+  end
+
   private
   def execute(method, uri, params, options)
     if @cas_opts[:use_cookies] and !@cookies.nil? and !@cookies.empty?
       begin
         execute_with_cookie(method, uri, params, options)
-      rescue RestClient::Request::Unauthorized => e
+      rescue RestClient::Request::Unauthorized
         execute_with_tgt(method, uri, params, options)
       end
     else
@@ -55,7 +56,7 @@ class CasRestClient
     ticket = nil
     begin
       ticket = create_ticket(@tgt, :service => @cas_opts[:service] || uri)
-    rescue RestClient::ResourceNotFound => e
+    rescue RestClient::ResourceNotFound
       get_tgt
       ticket = create_ticket(@tgt, :service => @cas_opts[:service] || uri)
     end
