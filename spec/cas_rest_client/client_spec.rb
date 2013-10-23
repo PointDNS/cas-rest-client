@@ -5,10 +5,10 @@ default_options = {:uri => 'http://tst.srv/v1/tickets',
            :username => 'lw_tst',
            :password => 'inicial1234'}
 
-describe CasRestClient do
+describe CasRestClient::Client do
 
   describe 'Lifecycle' do
-    let(:crc) { CasRestClient.new(options) }
+    let(:crc) { CasRestClient::Client.new(options) }
     let(:cookie) { "the-cas-cookie" }
     before :each do
       RestClient.should_receive(:post).and_return(mock(:headers => {:location => "http://tgt_uri.com"}))
@@ -141,7 +141,7 @@ describe CasRestClient do
       opts = default_options.dup
       RestClient.should_receive(:post).with(opts.delete(:uri), opts).and_raise(RestClient::Request::Unauthorized)
 
-      lambda{CasRestClient.new(default_options)}.should raise_error(RestClient::Request::Unauthorized)
+      lambda{CasRestClient::Client.new(default_options)}.should raise_error(RestClient::Request::Unauthorized)
     end
   end
 
@@ -160,7 +160,7 @@ describe CasRestClient do
       mock_header.should_receive(:headers).and_return({:location => "http://some_location.com"})
       RestClient.should_receive(:post).and_return(mock_header)
 
-      client = CasRestClient.new
+      client = CasRestClient::Client.new
 
       client_config = client.instance_eval('@cas_opts')
       client_config[:uri].should be_eql("https://casuri.com/v1/tickets")
@@ -185,7 +185,7 @@ describe CasRestClient do
       mock_header.should_receive(:headers).and_return({:location => "http://some_location.com"})
       RestClient.should_receive(:post).and_return(mock_header)
 
-      client = CasRestClient.new :use_cookies => true, :uri => 'https://otheruri.com/v1/tickets'
+      client = CasRestClient::Client.new :use_cookies => true, :uri => 'https://otheruri.com/v1/tickets'
 
       client_config = client.instance_eval('@cas_opts')
       client_config[:uri].should be_eql('https://otheruri.com/v1/tickets')
@@ -218,7 +218,7 @@ describe CasRestClient do
       mock_header.should_receive(:headers).and_return({:location => "http://some_location.com"})
       RestClient.should_receive(:post).and_return(mock_header)
 
-      client = CasRestClient.new
+      client = CasRestClient::Client.new
 
       client_config = client.instance_eval('@cas_opts')
       client_config[:uri].should be_eql("https://casuri.com/v1/tickets")

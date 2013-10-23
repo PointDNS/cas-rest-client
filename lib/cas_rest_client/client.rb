@@ -1,4 +1,4 @@
-class CasRestClient
+class CasRestClient::Client
 
   DEFAULT_OPTIONS = {:use_cookies => true}
 
@@ -12,12 +12,12 @@ class CasRestClient
     end
   end
 
-  def get(uri, options = {})
-    execute("get", uri, {}, options)
+  def get(uri, params = {},options = {})
+    execute("get", uri, params, options)
   end
 
-  def delete(uri, options = {})
-    execute("delete", uri, {}, options)
+  def delete(uri, params = {}, options = {})
+    execute("delete", uri, params, options)
   end
 
   def post(uri, params = {}, options = {})
@@ -33,6 +33,7 @@ class CasRestClient
   end
 
   private
+
   def execute(method, uri, params, options)
     if @cas_opts[:use_cookies] and !@cookies.nil? and !@cookies.empty?
       begin
@@ -46,8 +47,11 @@ class CasRestClient
   end
 
   def execute_with_cookie(method, uri, params, options)
-    return RestClient.send(method, uri, {:cookies => @cookies}.merge(options)) if params.empty?
-    RestClient.send(method, uri, params, {:cookies => @cookies}.merge(options))
+    args = [method, uri]
+    args << params unless params.empty?
+    args << {:cookies => @cookies}.merge(options)
+    response = RestClient.send(*args)
+    CasRestClient::Response.new response
   end
 
   def execute_with_tgt(method, uri, params, options)
@@ -64,7 +68,7 @@ class CasRestClient
     response = execute_request(method, uri, ticket, params, options)
 
     @cookies = response.cookies
-    response
+    CasRestClient::Response.new response, ticket
   end
 
   def execute_request(method, uri, ticket, params, options)
