@@ -2,9 +2,14 @@ class CasRestClient::Client
 
   DEFAULT_OPTIONS = {:use_cookies => true}
 
-  def initialize(cas_opts = {})
-    @cas_opts = DEFAULT_OPTIONS.merge(get_cas_config).merge(cas_opts)
+  attr_accessor :tgt
 
+  def initialize(tgt = nil, cas_opts = {})
+    @tgt = tgt if tgt
+    @cas_opts = DEFAULT_OPTIONS.merge(get_cas_config).merge(cas_opts)
+  end
+
+  def connect
     begin
       get_tgt
     rescue RestClient::BadRequest
@@ -12,8 +17,8 @@ class CasRestClient::Client
     end
   end
 
-  def get(uri, params = {},options = {})
-    execute("get", uri, params, options)
+  def get(uri, options = {})
+    execute("get", uri, {}, options)
   end
 
   def delete(uri, params = {}, options = {})
@@ -30,6 +35,18 @@ class CasRestClient::Client
 
   def destroy
     RestClient.delete(@tgt)
+  end
+
+  def get_service_ticket(uri = nil)
+    get_tgt unless @tgt
+
+    begin
+      ticket = create_ticket(@tgt, :service => @cas_opts[:service] || uri)
+    rescue RestClient::ResourceNotFound
+      get_tgt
+      ticket = create_ticket(@tgt, :service => @cas_opts[:service] || uri)
+    end
+    ticket
   end
 
   private
@@ -55,15 +72,7 @@ class CasRestClient::Client
   end
 
   def execute_with_tgt(method, uri, params, options)
-    get_tgt unless @tgt
-
-    ticket = nil
-    begin
-      ticket = create_ticket(@tgt, :service => @cas_opts[:service] || uri)
-    rescue RestClient::ResourceNotFound
-      get_tgt
-      ticket = create_ticket(@tgt, :service => @cas_opts[:service] || uri)
-    end
+    ticket = get_service_ticket(uri)
 
     response = execute_request(method, uri, ticket, params, options)
 
@@ -79,9 +88,13 @@ class CasRestClient::Client
       uri = "#{uri}#{uri.include?("?") ? "&" : "?"}ticket=#{ticket}"
     end
 
+    options = (@cas_opts[:headers] || {}).merge options
     begin
-      return RestClient.send(method, uri, options) if params.empty?
-      RestClient.send(method, uri, params, options)
+      if method == "get"
+        RestClient.send(method, uri, options)
+      else
+        RestClient.send(method, uri, params || {}, options)
+      end
     rescue RestClient::Found => e
       if method == 'post' && ( @cookies = e.response.cookies )
         execute_with_cookie method, original_uri, params, options
@@ -92,7 +105,7 @@ class CasRestClient::Client
   end
 
   def create_ticket(uri, params)
-    ticket = RestClient.post(uri, params)
+    ticket = RestClient.post(uri, params, @cas_opts[:headers] || {})
     ticket = ticket.body if ticket.respond_to? 'body'
     ticket
   end
@@ -101,7 +114,8 @@ class CasRestClient::Client
     opts = @cas_opts.dup
     opts.delete(:service)
     opts.delete(:use_cookies)
-    @tgt = RestClient.post(opts.delete(:uri), opts).headers[:location]
+    headers = opts.delete(:headers) || {}
+    @tgt = RestClient.post(opts.delete(:uri), opts, headers).headers[:location]
   end
 
   def get_cas_config
