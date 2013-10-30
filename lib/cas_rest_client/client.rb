@@ -4,9 +4,9 @@ class CasRestClient::Client
 
   attr_accessor :tgt
 
-  def initialize(tgt = nil, cas_opts = {})
-    @tgt = tgt if tgt
+  def initialize(only_tgt = nil, cas_opts = {})
     @cas_opts = DEFAULT_OPTIONS.merge(get_cas_config).merge(cas_opts)
+    @tgt = "#{@cas_opts[:uri]}/#{only_tgt}" if only_tgt
   end
 
   def connect
