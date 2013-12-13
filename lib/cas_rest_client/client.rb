@@ -1,11 +1,10 @@
 class CasRestClient::Client
 
-  DEFAULT_OPTIONS = {:use_cookies => true}
-
   attr_accessor :tgt
 
-  def initialize(only_tgt = nil, cas_opts = {})
-    @cas_opts = DEFAULT_OPTIONS.merge(get_cas_config).merge(cas_opts)
+  def initialize(only_tgt = nil, request_opts = {}, cas_opts = {})
+    @cas_opts = get_cas_config.merge(cas_opts)
+    @request_opts = request_opts || {}
     @tgt = "#{@cas_opts[:uri]}/#{only_tgt}" if only_tgt
   end
 
@@ -17,24 +16,8 @@ class CasRestClient::Client
     end
   end
 
-  def get(uri, options = {})
-    execute("get", uri, {}, options)
-  end
-
-  def delete(uri, params = {}, options = {})
-    execute("delete", uri, params, options)
-  end
-
-  def post(uri, params = {}, options = {})
-    execute("post", uri, params, options)
-  end
-
-  def put(uri, params = {}, options = {})
-    execute("put", uri, params, options)
-  end
-
-  def destroy
-    RestClient.delete(@tgt)
+  def post(uri, params = {})
+    execute_with_tgt("post", uri, params)
   end
 
   def get_service_ticket(uri = nil)
@@ -51,71 +34,48 @@ class CasRestClient::Client
 
   private
 
-  def execute(method, uri, params, options)
-    if @cas_opts[:use_cookies] and !@cookies.nil? and !@cookies.empty?
-      begin
-        execute_with_cookie(method, uri, params, options)
-      rescue RestClient::Request::Unauthorized
-        execute_with_tgt(method, uri, params, options)
-      end
-    else
-      execute_with_tgt(method, uri, params, options)
-    end
-  end
-
-  def execute_with_cookie(method, uri, params, options)
-    args = [method, uri]
-    args << params unless params.empty?
-    args << {:cookies => @cookies}.merge(options)
-    response = RestClient.send(*args)
-    CasRestClient::Response.new response
-  end
-
-  def execute_with_tgt(method, uri, params, options)
+  def execute_with_tgt(method, uri, params)
     ticket = get_service_ticket(uri)
 
-    response = execute_request(method, uri, ticket, params, options)
+    response = execute_request(method, uri, ticket, params)
 
     @cookies = response.cookies
+
     CasRestClient::Response.new response, ticket
   end
 
-  def execute_request(method, uri, ticket, params, options)
-    original_uri = uri
+  def execute_request(method, uri, ticket, params)
+    options = {}.merge(@request_opts)
     if @cas_opts[:ticket_header]
-      options[@cas_opts[:ticket_header]] = ticket
+      options[:headers] ||= {}
+      options[:headers][@cas_opts[:ticket_header]] = ticket
     else
       uri = "#{uri}#{uri.include?("?") ? "&" : "?"}ticket=#{ticket}"
     end
-
-    options = (@cas_opts[:headers] || {}).merge options
-    begin
-      if method == "get"
-        RestClient.send(method, uri, options)
-      else
-        RestClient.send(method, uri, params || {}, options)
-      end
-    rescue RestClient::Found => e
-      if method == 'post' && ( @cookies = e.response.cookies )
-        execute_with_cookie method, original_uri, params, options
-      else
-        raise
-      end
+    if method == "get"
+      RestClient::Request.execute({method: method, url: uri}.merge(options))
+    else
+      RestClient::Request.execute({method: method, url: uri, payload: params || {}}.merge(options))
     end
   end
 
   def create_ticket(uri, params)
-    ticket = RestClient.post(uri, params, @cas_opts[:headers] || {})
+    ticket = RestClient::Request.execute({
+      method: 'post',
+      url: uri,
+      payload: params
+    }.merge(@request_opts))
     ticket = ticket.body if ticket.respond_to? 'body'
     ticket
   end
 
   def get_tgt
-    opts = @cas_opts.dup
-    opts.delete(:service)
-    opts.delete(:use_cookies)
-    headers = opts.delete(:headers) || {}
-    @tgt = RestClient.post(opts.delete(:uri), opts, headers).headers[:location]
+    response = RestClient::Request.execute({
+      method: 'post',
+      url: @cas_opts[:uri],
+      payload: @cas_opts[:payload]
+    }.merge(@request_opts))
+    @tgt = response.headers[:location]
   end
 
   def get_cas_config
