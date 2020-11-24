@@ -80,8 +80,9 @@ class CasRestClient::Client
 
   def get_cas_config
     begin
-      cas_config = YAML.load_file("config/cas_rest_client.yml")
-      cas_config = cas_config[Rails.env] if defined?(Rails) and Rails.env
+      cas_config_file = Rails.root.join('config/cas_rest_client.yml')
+      parsed_cas_config = ERB.new(IO.read(cas_config_file)).result
+      cas_config = YAML.load(parsed_cas_config)[Rails.env] if defined?(Rails) and Rails.env
 
       cas_config = cas_config.inject({}) do |options, (key, value)|
         options[(key.to_sym rescue key) || key] = value
