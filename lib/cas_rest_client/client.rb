@@ -12,7 +12,7 @@ class CasRestClient::Client
     begin
       get_tgt
     rescue RestClient::BadRequest
-      raise RestClient::Request::Unauthorized.new
+      raise RestClient::Unauthorized.new
     end
   end
 
